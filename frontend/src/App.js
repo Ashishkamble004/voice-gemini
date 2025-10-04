@@ -23,7 +23,8 @@ function App() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('/transcribe', {
+      const apiUrl = process.env.REACT_APP_API_URL;
+      const response = await fetch(`${apiUrl}/transcribe`, {
         method: 'POST',
         body: formData,
       });
@@ -45,7 +46,8 @@ function App() {
   const startStreaming = async () => {
     setIsStreaming(true);
     setLiveTranscript('');
-    wsRef.current = new WebSocket('ws://localhost:8080/ws/transcribe');
+    const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8080/ws/transcribe';
+    wsRef.current = new WebSocket(wsUrl);
     wsRef.current.onmessage = (event) => {
       setLiveTranscript((prev) => prev + event.data);
     };
