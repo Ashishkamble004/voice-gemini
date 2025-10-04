@@ -42,7 +42,7 @@ def transcribe_streaming_v2(
         config=recognition_config
     )
     config_request = cloud_speech_types.StreamingRecognizeRequest(
-        recognizer=f"projects/general-ak/locations/global/recognizers/_",
+        recognizer=f"projects/general-ak/locations/asia-southeast1/recognizers/_",
         streaming_config=streaming_config,
     )
 
