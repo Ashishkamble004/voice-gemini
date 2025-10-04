@@ -45,5 +45,7 @@ async def websocket_transcribe(websocket: WebSocket):
         print(f"WebSocket closed: {e}")
 
 
+import os
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
