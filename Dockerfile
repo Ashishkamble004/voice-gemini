@@ -2,7 +2,8 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Set the working directory in the container
+# Set default environment variables
+ENV GOOGLE_CLOUD_PROJECT=general-ak
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
