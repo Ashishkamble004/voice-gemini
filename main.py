@@ -7,7 +7,6 @@ from stt import transcribe_streaming_v2
 
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/", StaticFiles(directory="frontend/build", html=True), name="frontend")
 
 @app.get("/")
