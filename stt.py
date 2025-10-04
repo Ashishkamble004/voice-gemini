@@ -37,7 +37,7 @@ def transcribe_streaming_v2(audio_input: Union[bytes, str]) -> str:
     recognition_config = cloud_speech_types.RecognitionConfig(
         auto_decoding_config=cloud_speech_types.AutoDetectDecodingConfig(),
         language_codes=["en-US"],
-        model="chirp",
+        model="chirp_3",
     )
     streaming_config = cloud_speech_types.StreamingRecognitionConfig(
         config=recognition_config
