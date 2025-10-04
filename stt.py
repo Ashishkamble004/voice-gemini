@@ -5,32 +5,21 @@ from google.cloud.speech_v2.types import cloud_speech as cloud_speech_types
 
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT","general-ak")
 
+from typing import Generator
+
 def transcribe_streaming_v2(
-    stream_file: str,
-) -> cloud_speech_types.StreamingRecognizeResponse:
-    """Transcribes audio from an audio file stream using Google Cloud Speech-to-Text API.
-    Args:
-        stream_file (str): Path to the local audio file to be transcribed.
-            Example: "resources/audio.wav"
-    Returns:
-        list[cloud_speech_types.StreamingRecognizeResponse]: A list of objects.
-            Each response includes the transcription results for the corresponding audio segment.
+    audio_chunk_generator,
+) -> Generator[str, None, None]:
     """
-    # Instantiates a client with asia-southeast1 endpoint
+    Transcribes audio from a generator of audio chunks using Google Cloud Speech-to-Text API.
+    Args:
+        audio_chunk_generator: generator yielding bytes objects (≤25600 bytes each)
+    Returns:
+        str: The transcription result.
+    """
     client = SpeechClient(client_options={"api_endpoint": "asia-southeast1-speech.googleapis.com"})
-
-    # Reads a file as bytes
-    with open(stream_file, "rb") as f:
-        audio_content = f.read()
-
-    # In practice, stream should be a generator yielding chunks of audio data
-    chunk_length = len(audio_content) // 5
-    stream = [
-        audio_content[start : start + chunk_length]
-        for start in range(0, len(audio_content), chunk_length)
-    ]
     audio_requests = (
-        cloud_speech_types.StreamingRecognizeRequest(audio=audio) for audio in stream
+        cloud_speech_types.StreamingRecognizeRequest(audio=audio) for audio in audio_chunk_generator
     )
 
     recognition_config = cloud_speech_types.RecognitionConfig(
@@ -42,21 +31,18 @@ def transcribe_streaming_v2(
         config=recognition_config
     )
     config_request = cloud_speech_types.StreamingRecognizeRequest(
-        recognizer=f"projects/general-ak/locations/asia-southeast1/recognizers/_",
+        recognizer=f"projects/{PROJECT_ID}/locations/asia-southeast1/recognizers/_",
         streaming_config=streaming_config,
     )
 
-    def requests(config: cloud_speech_types.RecognitionConfig, audio: list) -> list:
-        yield config
-        yield from audio
+    def requests(config_request, audio_requests):
+        yield config_request
+        yield from audio_requests
 
-    # Transcribes the audio into text
     responses_iterator = client.streaming_recognize(
         requests=requests(config_request, audio_requests)
     )
-    transcript = ""
     for response in responses_iterator:
         for result in response.results:
-            transcript += result.alternatives[0].transcript
-
-    return transcript
+            # Yield each partial transcript as soon as it's available
+            yield result.alternatives[0].transcript
