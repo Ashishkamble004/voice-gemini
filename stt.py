@@ -1,18 +1,30 @@
 import os
+from typing import Union
 
 from google.cloud.speech_v2 import SpeechClient
 from google.cloud.speech_v2.types import cloud_speech as cloud_speech_types
 
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT","general-ak")
 
-def transcribe_streaming_v2(audio_bytes: bytes) -> str:
+def transcribe_streaming_v2(audio_input: Union[bytes, str]) -> str:
     """
-    Transcribes audio from bytes using Google Cloud Speech-to-Text API with proper chunking.
+    Transcribes audio from bytes or file path using Google Cloud Speech-to-Text API with proper chunking.
     Args:
-        audio_bytes: bytes object containing audio data
+        audio_input: bytes object containing audio data or string file path
     Returns:
         str: The transcription result.
     """
+    # Handle both file path and bytes
+    if isinstance(audio_input, str):
+        with open(audio_input, 'rb') as f:
+            audio_bytes = f.read()
+    else:
+        audio_bytes = audio_input
+    
+    # If audio_bytes is empty, return empty string
+    if not audio_bytes:
+        return ""
+    
     client = SpeechClient(client_options={"api_endpoint": "asia-southeast1-speech.googleapis.com"})
     MAX_CHUNK_SIZE = 25600
     stream = [
@@ -25,7 +37,7 @@ def transcribe_streaming_v2(audio_bytes: bytes) -> str:
     recognition_config = cloud_speech_types.RecognitionConfig(
         auto_decoding_config=cloud_speech_types.AutoDetectDecodingConfig(),
         language_codes=["en-US"],
-        model="chirp_3",
+        model="chirp",
     )
     streaming_config = cloud_speech_types.StreamingRecognitionConfig(
         config=recognition_config
@@ -37,11 +49,17 @@ def transcribe_streaming_v2(audio_bytes: bytes) -> str:
     def requests(config_request, audio_requests):
         yield config_request
         yield from audio_requests
-    responses_iterator = client.streaming_recognize(
-        requests=requests(config_request, audio_requests)
-    )
-    transcript = ""
-    for response in responses_iterator:
-        for result in response.results:
-            transcript += result.alternatives[0].transcript
-    return transcript
+    
+    try:
+        responses_iterator = client.streaming_recognize(
+            requests=requests(config_request, audio_requests)
+        )
+        transcript = ""
+        for response in responses_iterator:
+            for result in response.results:
+                if result.alternatives:
+                    transcript += result.alternatives[0].transcript
+        return transcript
+    except Exception as e:
+        print(f"Error during transcription: {e}")
+        return ""
