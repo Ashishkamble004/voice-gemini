@@ -16,8 +16,8 @@ def transcribe_streaming_v2(
         list[cloud_speech_types.StreamingRecognizeResponse]: A list of objects.
             Each response includes the transcription results for the corresponding audio segment.
     """
-    # Instantiates a client
-    client = SpeechClient()
+    # Instantiates a client with asia-southeast1 endpoint
+    client = SpeechClient(client_options={"api_endpoint": "asia-southeast1-speech.googleapis.com"})
 
     # Reads a file as bytes
     with open(stream_file, "rb") as f:
