@@ -1,4 +1,4 @@
-fastapi
-uvicorn
-python-multipart
+streamlit
+streamlit-webrtc
+av
 google-cloud-speech
