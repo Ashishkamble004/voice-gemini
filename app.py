@@ -26,21 +26,12 @@ class AudioProcessor(AudioProcessorBase):
 
     def start_streaming_transcription(self, update_callback):
         self.streaming = True
-        def audio_chunk_generator():
-            idx = 0
-            while self.streaming:
-                with self.lock:
-                    chunk = self.audio_buffer[idx:idx+25600]
-                if not chunk:
-                    break
-                yield chunk
-                idx += 25600
         def run():
-            transcript = ""
-            for partial in transcribe_streaming_v2(audio_chunk_generator(), partials=True):
-                transcript += partial
-                self.partial_transcript = transcript
-                update_callback(transcript)
+            with self.lock:
+                audio_bytes = self.audio_buffer
+            transcript = transcribe_streaming_v2(audio_bytes)
+            self.partial_transcript = transcript
+            update_callback(transcript)
         threading.Thread(target=run, daemon=True).start()
 
     def stop_streaming(self):
@@ -61,6 +52,11 @@ webrtc_ctx = webrtc_streamer(
 if webrtc_ctx and webrtc_ctx.state.playing:
     st.write("Recording... Speak into your microphone.")
     transcript_placeholder = st.empty()
+    def update_transcript(text):
+        transcript_placeholder.write(text)
+    if st.button("Transcribe Audio"):
+        webrtc_ctx.audio_processor.start_streaming_transcription(update_transcript)
+    transcript_placeholder.write(webrtc_ctx.audio_processor.partial_transcript)
     def update_transcript(text):
         transcript_placeholder.write(text)
     if st.button("Start Immediate Transcription"):
