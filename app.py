@@ -30,9 +30,17 @@ class AudioProcessor(AudioProcessorBase):
             return self.transcript
         return ""
 
-webrtc_ctx = webrtc_streamer(key="speech-to-text", audio_receiver_size=256, 
-                             media_stream_constraints={"audio": True, "video": False},
-                             audio_processor_factory=AudioProcessor)
+webrtc_ctx = webrtc_streamer(
+    key="speech-to-text",
+    audio_receiver_size=256,
+    media_stream_constraints={"audio": True, "video": False},
+    audio_processor_factory=AudioProcessor,
+    rtc_configuration={
+        "iceServers": [
+            {"urls": ["stun:stun.l.google.com:19302"]}
+        ]
+    }
+)
 
 if webrtc_ctx and webrtc_ctx.state.playing:
     st.write("Recording... Speak into your microphone.")
