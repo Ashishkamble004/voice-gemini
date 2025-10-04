@@ -1,17 +1,33 @@
 import shutil
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, WebSocket
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from stt import transcribe_streaming_v2
 
 app = FastAPI()
 
-app.mount("/", StaticFiles(directory="frontend/build", html=True), name="frontend")
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # You can restrict this to your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+from fastapi.responses import FileResponse
+
+
+# Serve React build for root and unmatched frontend routes
 @app.get("/")
-async def read_index():
-    return FileResponse('frontend/build/index.html')
+async def serve_react_index():
+    return FileResponse("frontend/build/index.html")
+
+@app.get("/{full_path:path}")
+async def serve_react_catchall(full_path: str):
+    return FileResponse("frontend/build/index.html")
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
