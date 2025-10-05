@@ -20,7 +20,7 @@ def transcribe_with_gemini(audio_file_path: str) -> str:
     audio_file = genai.upload_file(path=audio_file_path)
     print(f"Completed upload: {audio_file.name}")
 
-    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
+    model = genai.GenerativeModel(model_name="models/gemini-2.5-flash")
     prompt = "Transcribe this audio."
 
     try:
