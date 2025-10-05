@@ -57,7 +57,7 @@ transcript_container.markdown(st.session_state.transcript)
 if not webrtc_ctx.state.playing and not st.session_state.recording:
     if st.button("Start Recording"):
         st.session_state.recording = True
-        st.experimental_rerun()
+        st.rerun()
 
 elif webrtc_ctx.state.playing and st.session_state.recording:
     st.write("🔴 Recording... Speak into your microphone.")
@@ -73,7 +73,7 @@ elif webrtc_ctx.state.playing and st.session_state.recording:
 
     if st.button("Stop Recording"):
         st.session_state.recording = False
-        st.experimental_rerun()
+        st.rerun()
 
 # -- File Uploader --
 st.header("Or, upload an audio file")
@@ -83,6 +83,10 @@ if uploaded_file is not None:
     st.audio(uploaded_file, format='audio/wav')
     
     with st.spinner('Transcribing file...'):
+        # Save the uploaded file to a temporary file to get a valid path
+        with open(uploaded_file.name, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        
         # The `transcribe_streaming` function now handles file paths directly
         file_transcript_generator = transcribe_streaming(uploaded_file.name)
         full_transcript = "".join(list(file_transcript_generator))
