@@ -1,17 +1,18 @@
 import os
-import vertexai
-from vertexai.generative_models import GenerativeModel, Part, Tool
+from google import genai
 from google.genai import types
 
 def initialize_vertexai():
-    """Initializes the Vertex AI SDK."""
-    # This will use the project and location from your gcloud config
-    # or the environment your app is running in.
-    vertexai.init(project="general-ak", location="us-central1")
+    """Initializes the Google GenAI client with Vertex AI."""
+    return genai.Client(
+        vertexai=True,
+        project="general-ak",
+        location="global",
+    )
 
 def transcribe_with_vertex(audio_file_path: str) -> str:
-    """Transcribes an audio file using a Gemini model in Vertex AI."""
-    initialize_vertexai()
+    """Transcribes an audio file using Gemini 2.5 Flash Lite."""
+    client = initialize_vertexai()
     
     print(f"Transcribing file: {audio_file_path}")
     
@@ -19,63 +20,91 @@ def transcribe_with_vertex(audio_file_path: str) -> str:
     with open(audio_file_path, "rb") as f:
         audio_bytes = f.read()
 
-    # Prepare the audio part for the model
-    audio_part = Part.from_data(
-        data=audio_bytes,
-        mime_type="audio/wav"
-    )
-
-    model = GenerativeModel(model_name="gemini-2.5-flash")
-    prompt = "Transcribe this audio."
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
+                types.Part.from_text(text="Transcribe this audio.")
+            ]
+        ),
+    ]
 
     try:
-        response = model.generate_content([prompt, audio_part])
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite",
+            contents=contents,
+        )
         return response.text
     except Exception as e:
         print(f"An error occurred during transcription: {e}")
         return f"Error during transcription: {e}"
 
 def query_rag_with_vertex(prompt: str):
-    """Sends a prompt to a RAG-enabled model in Vertex AI and streams the response."""
-    initialize_vertexai()
+    """Sends a prompt to Gemini 2.5 Flash Lite with RAG and streams the response."""
+    client = initialize_vertexai()
 
     print(f"Querying RAG with prompt: {prompt}")
 
-    system_prompt = (
-        "You are a helpful assistant for Cymbal Bank. "
-        "Please answer the user's question based on the documents provided. "
-        "If the information is not in the documents, say that you cannot find the answer."
-    )
-
-    model = GenerativeModel(
-        "gemini-2.5-flash",
-        system_instruction=system_prompt
-    )
-    
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=prompt)
+            ]
+        ),
+    ]
     tools = [
         types.Tool(
-        retrieval=types.Retrieval(
-            vertex_rag_store=types.VertexRagStore(
-            rag_resources=[
-                types.VertexRagStoreRagResource(
-                rag_corpus="projects/general-ak/locations/us-east4/ragCorpora/2305843009213693952"
+            retrieval=types.Retrieval(
+                vertex_rag_store=types.VertexRagStore(
+                    rag_resources=[
+                        types.VertexRagStoreRagResource(
+                            rag_corpus="projects/general-ak/locations/us-east4/ragCorpora/2305843009213693952"
+                        )
+                    ],
                 )
-            ],
             )
-        )
         )
     ]
 
+    generate_content_config = types.GenerateContentConfig(
+        temperature=0.6,
+        top_p=0.95,
+        max_output_tokens=1000,
+        safety_settings=[
+            types.SafetySetting(
+                category="HARM_CATEGORY_HATE_SPEECH",
+                threshold="BLOCK_ONLY_HIGH"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                threshold="BLOCK_ONLY_HIGH"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                threshold="BLOCK_ONLY_HIGH"
+            ),
+            types.SafetySetting(
+                category="HARM_CATEGORY_HARASSMENT",
+                threshold="BLOCK_ONLY_HIGH"
+            ),
+        ],
+        tools=tools,
+        thinking_config=types.ThinkingConfig(
+            thinking_budget=0,
+        ),
+    )
+
     try:
-        response_stream = model.generate_content(
-            prompt,
-            tools=tools,
-            stream=True,
-        )
-        
-        for chunk in response_stream:
-            if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
-                yield chunk.text
+        for chunk in client.models.generate_content_stream(
+            model="gemini-2.5-flash-lite",
+            contents=contents,
+            config=generate_content_config,
+        ):
+            if not chunk.candidates or not chunk.candidates[0].content or not chunk.candidates[0].content.parts:
+                continue
+            yield chunk.text
     except Exception as e:
         print(f"An error occurred during RAG query: {e}")
         yield f"Error querying RAG system: {e}"
