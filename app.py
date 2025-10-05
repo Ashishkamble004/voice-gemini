@@ -31,7 +31,8 @@ def stream_transcription(audio_queue: queue.Queue, transcript_container):
             try:
                 yield audio_queue.get(timeout=1)
             except queue.Empty:
-                break # Exit if no audio for 1s
+                # If no audio, continue waiting as long as we are recording.
+                pass
 
     transcript_chunks = transcribe_streaming(audio_chunk_generator())
     
@@ -73,7 +74,7 @@ elif webrtc_ctx.state.playing and st.session_state.recording:
     st.write("🔴 Recording... Speak into your microphone.")
     
     # Start the transcription thread
-    if "transcription_thread" not in st.session_state:
+    if "transcription_thread" not in st.session_state or not st.session_state.transcription_thread.is_alive():
         thread = threading.Thread(
             target=stream_transcription,
             args=(webrtc_ctx.audio_processor.audio_queue, transcript_container),
