@@ -2,6 +2,7 @@ import os
 import google.generativeai as genai
 from google.cloud import aiplatform
 from google.generativeai import types
+from typing import Generator
 
 # --- Authentication for Transcription (Gemini API Key) ---
 try:
@@ -15,7 +16,7 @@ except KeyError:
         pass
 
 def transcribe_with_gemini(audio_file_path: str) -> str:
-    """Transcribes an audio file using the Gemini 1.5 Flash model."""
+    """Transcribes an audio file using the Gemini 2.5 Flash model."""
     print(f"Uploading file for transcription: {audio_file_path}")
     audio_file = genai.upload_file(path=audio_file_path)
     print(f"Completed upload: {audio_file.name}")
@@ -32,31 +33,37 @@ def transcribe_with_gemini(audio_file_path: str) -> str:
         print(f"An error occurred during transcription: {e}")
         return f"Error during transcription: {e}"
 
-def query_rag_with_vertex(prompt: str) -> str:
-    """Sends a prompt to a RAG-enabled model in Vertex AI."""
+def query_rag_with_vertex(prompt: str) -> Generator[str, None, None]:
+    """Sends a prompt to a RAG-enabled model in Vertex AI and streams the response."""
     print(f"Querying RAG with prompt: {prompt}")
 
-    # --- Authentication for RAG (Vertex AI Service Account) ---
-    # This assumes you are authenticated via gcloud auth application-default login
-    # or running in a GCP environment with a service account.
-    aiplatform.init(project="general-ak", location="global")
-    
-    client = aiplatform.gapic.GenerativeServiceClient()
+    # --- RAG Client Initialization ---
+    client = genai.Client(
+        vertexai=True,
+        project="general-ak",
+        location="global",
+    )
 
-    model = "gemini-2.5-flash"
-    contents = [
-        types.Content(
-            role="user",
-            parts=[types.Part.from_text(text=prompt)]
-        ),
-    ]
+    # --- Fixed System Prompt ---
+    system_prompt = (
+        "You are a helpful assistant for Cymbal Bank. "
+        "Please answer the user's question based on the documents provided. "
+        "If the information is not in the documents, say that you cannot find the answer."
+    )
+
+    # The model is now initialized with the fixed system prompt
+    model = genai.GenerativeModel(
+        "gemini-2.5-flash",
+        system_instruction=system_prompt
+    )
+    
     tools = [
         types.Tool(
             retrieval=types.Retrieval(
                 vertex_rag_store=types.VertexRagStore(
                     rag_resources=[
                         types.VertexRagStoreRagResource(
-                            rag_corpus="projects/general-ak/locations/us-east4/ragCorpora/2305843009213693952"
+                            rag_corpus="projects/general-ak/locations/us-east4/ragCorpora/6917529027641081856"
                         )
                     ],
                 )
@@ -65,12 +72,16 @@ def query_rag_with_vertex(prompt: str) -> str:
     ]
 
     try:
-        response = client.generate_content(
-            model=f"projects/general-ak/locations/global/endpoints/{model}",
-            contents=contents,
+        # Stream the response from the model
+        response_stream = model.generate_content(
+            prompt,
             tools=tools,
+            stream=True,
         )
-        return response.candidates[0].content.parts[0].text
+        
+        for chunk in response_stream:
+            if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
+                yield chunk.text
     except Exception as e:
         print(f"An error occurred during RAG query: {e}")
-        return f"Error querying RAG system: {e}"
+        yield f"Error querying RAG system: {e}"

@@ -20,16 +20,21 @@ def handle_audio(file_path: str):
     st.info("Your transcribed question:")
     st.text_area("Question", transcript, height=100)
 
-    # -- Step 2: Query the RAG system with the transcript --
-    with st.spinner('Searching for an answer...'):
-        rag_response = query_rag_with_vertex(transcript)
-    
-    if "Error" in rag_response:
-        st.error(rag_response)
-        return
-        
+    # -- Step 2: Query the RAG system and stream the response --
     st.success("Answer from our system:")
-    st.markdown(rag_response)
+    answer_container = st.empty()
+    
+    with st.spinner('Searching for an answer...'):
+        rag_response_stream = query_rag_with_vertex(transcript)
+        
+        full_response = ""
+        for chunk in rag_response_stream:
+            full_response += chunk
+            answer_container.markdown(full_response)
+    
+    if "Error" in full_response:
+        st.error(full_response)
+        return
 
 # -- Audio Recorder --
 wav_audio_data = st_audiorec()
