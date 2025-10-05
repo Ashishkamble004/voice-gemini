@@ -155,48 +155,83 @@ def add_wav_header(audio_bytes, sample_rate=24000):
     header = struct.pack('<4sL4s4sLHHLLHH4sL', riff, riff_size, wave, fmt, fmt_size, audio_format, num_channels, sample_rate, byte_rate, block_align, bits_per_sample, data, data_size)
     return header + audio_bytes
 
-from pydub import AudioSegment
-AudioSegment.converter = "/usr/bin/ffmpeg"
-import io
+import subprocess
+import tempfile
 
 def streaming_text_to_speech(text_chunks):
-    """Streams text-to-speech audio for a sequence of text chunks."""
+    """Streams text-to-speech audio for a sequence of text chunks using ffmpeg."""
     client = texttospeech.TextToSpeechClient()
 
-    # Assuming a standard US English voice, modify as needed
     voice = texttospeech.VoiceSelectionParams(
         language_code="en-US",
         name="en-US-Chirp3-HD-Female",
         ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
     )
 
-    # Configure audio - Chirp voices work well with MP3
     audio_config = texttospeech.AudioConfig(
         audio_encoding=texttospeech.AudioEncoding.MP3,
     )
 
-    # Collect audio chunks
-    combined_audio = AudioSegment.empty()
-
+    temp_files = []
     try:
-        for text in text_chunks:
+        for i, text in enumerate(text_chunks):
             if not text.strip():
                 continue
             input_text = texttospeech.SynthesisInput(text=text)
-
-            # Perform the text-to-speech request
             response = client.synthesize_speech(
                 input=input_text, voice=voice, audio_config=audio_config
             )
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3", prefix=f"chunk_{i}_") as fp:
+                fp.write(response.audio_content)
+                temp_files.append(fp.name)
 
-            # Append the received audio content using pydub
-            audio_segment = AudioSegment.from_mp3(io.BytesIO(response.audio_content))
-            combined_audio += audio_segment
+        if not temp_files:
+            return b""
+
+        if len(temp_files) == 1:
+            # No need for ffmpeg if only one file
+            with open(temp_files[0], "rb") as f:
+                return f.read()
+
+        # Create a file list for ffmpeg
+        with tempfile.NamedTemporaryFile(delete=False, mode='w', suffix=".txt") as file_list:
+            for f in temp_files:
+                file_list.write(f"file '{f}'\n")
+            file_list_path = file_list.name
+
+        # Use ffmpeg to concatenate the files
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as output_file:
+            output_path = output_file.name
         
-        # Export the combined audio to an in-memory file
-        buffer = io.BytesIO()
-        combined_audio.export(buffer, format="mp3")
-        return buffer.getvalue()
+        command = [
+            "/usr/bin/ffmpeg",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", file_list_path,
+            "-c", "copy",
+            output_path,
+            "-y"  # Overwrite output file if it exists
+        ]
+        subprocess.run(command, check=True, capture_output=True)
+
+        with open(output_path, "rb") as f:
+            final_audio = f.read()
+        
+        return final_audio
 
     except Exception as e:
+        # Capture ffmpeg errors if any
+        if isinstance(e, subprocess.CalledProcessError):
+            return f"FFmpeg error: {e.stderr.decode()}"
         return str(e)
+    finally:
+        # Clean up temporary files
+        import os
+        for f in temp_files:
+            if os.path.exists(f):
+                os.unlink(f)
+        if 'file_list_path' in locals() and os.path.exists(file_list_path):
+            os.unlink(file_list_path)
+        if 'output_path' in locals() and os.path.exists(output_path):
+            os.unlink(output_path)
