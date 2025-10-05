@@ -40,11 +40,11 @@ def handle_audio(file_path: str):
 
     # Auto TTS
     with st.spinner("Generating audio..."):
-        audio_bytes = streaming_text_to_speech(chunks)
-        if audio_bytes:
-            st.audio(audio_bytes, format="audio/mp3")
+        audio_result = streaming_text_to_speech(chunks)
+        if isinstance(audio_result, bytes) and audio_result:
+            st.audio(audio_result, format="audio/mp3")
         else:
-            st.error("Failed to generate audio.")
+            st.error(f"Failed to generate audio: {audio_result}")
 
 # Initialize session state for controlling the recorder
 if 'show_recorder' not in st.session_state:

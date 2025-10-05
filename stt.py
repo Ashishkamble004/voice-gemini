@@ -147,7 +147,7 @@ def streaming_text_to_speech(text_chunks):
         ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
     )
 
-    audio_config = texttospeech.AudioConfig(
+    streaming_audio_config = texttospeech.StreamingAudioConfig(
         audio_encoding=texttospeech.AudioEncoding.MP3,
     )
 
@@ -155,6 +155,7 @@ def streaming_text_to_speech(text_chunks):
         texttospeech.StreamingSynthesizeRequest(
             streaming_config=texttospeech.StreamingSynthesizeConfig(
                 voice=voice,
+                streaming_audio_config=streaming_audio_config,
             )
         )
     ]
@@ -170,8 +171,6 @@ def streaming_text_to_speech(text_chunks):
     try:
         for response in client.streaming_synthesize(requests):
             audio_content += response.audio_content
+        return audio_content
     except Exception as e:
-        print(f"Streaming TTS error: {e}")
-        return b""
-
-    return audio_content
+        return str(e)
