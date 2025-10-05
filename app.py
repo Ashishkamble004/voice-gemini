@@ -1,5 +1,5 @@
 import streamlit as st
-from stt import transcribe_with_vertex, query_rag_with_vertex
+from stt import transcribe_with_vertex, query_rag_with_vertex, streaming_text_to_speech
 from st_audiorec import st_audiorec
 import os
 
@@ -17,24 +17,34 @@ def handle_audio(file_path: str):
         st.error(transcript)
         return
 
-    st.info("Your transcribed question:")
-    st.text_area("Question", transcript, height=100)
+    # st.info("Your transcribed question:")
+    # st.text_area("Question", transcript, height=100)
 
     # -- Step 2: Query the RAG system with the transcript --
     st.success("Answer from our system:")
     answer_container = st.empty()
     
+    chunks = []
+    full_response = ""
     with st.spinner('Searching for an answer...'):
         rag_response_stream = query_rag_with_vertex(transcript)
         
-        full_response = ""
         for chunk in rag_response_stream:
+            chunks.append(chunk)
             full_response += chunk
             answer_container.markdown(full_response)
     
     if "Error" in full_response:
         st.error(full_response)
         return
+
+    # Auto TTS
+    with st.spinner("Generating audio..."):
+        audio_bytes = streaming_text_to_speech(chunks)
+        if audio_bytes:
+            st.audio(audio_bytes, format="audio/mp3")
+        else:
+            st.error("Failed to generate audio.")
 
 # Initialize session state for controlling the recorder
 if 'show_recorder' not in st.session_state:

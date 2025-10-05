@@ -1,6 +1,7 @@
 import os
 from google import genai
 from google.genai import types
+from google.cloud import texttospeech
 
 def initialize_vertexai():
     """Initializes the Google GenAI client with Vertex AI."""
@@ -108,3 +109,70 @@ def query_rag_with_vertex(prompt: str):
     except Exception as e:
         print(f"An error occurred during RAG query: {e}")
         yield f"Error querying RAG system: {e}"
+
+def text_to_speech(text: str) -> bytes:
+    """Converts text to speech using Google Cloud Text-to-Speech."""
+    client = texttospeech.TextToSpeechClient()
+
+    input_text = texttospeech.SynthesisInput(text=text)
+
+    # Configure voice - using Chirp3 HD model for high-quality TTS
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="en-US",
+        name="en-US-Chirp3-HD-Female",  # Chirp3 HD female voice
+        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
+    )
+
+    # Configure audio
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3,
+    )
+
+    try:
+        response = client.synthesize_speech(
+            input=input_text, voice=voice, audio_config=audio_config
+        )
+        return response.audio_content
+    except Exception as e:
+        print(f"TTS error: {e}")
+        return b""
+
+def streaming_text_to_speech(text_chunks):
+    """Converts text chunks to speech using Google Cloud Text-to-Speech streaming synthesis."""
+    client = texttospeech.TextToSpeechClient()
+
+    voice = texttospeech.VoiceSelectionParams(
+        language_code="en-US",
+        name="en-US-Chirp3-HD-Female",  # Chirp3 HD female voice
+        ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
+    )
+
+    audio_config = texttospeech.AudioConfig(
+        audio_encoding=texttospeech.AudioEncoding.MP3,
+    )
+
+    requests = [
+        texttospeech.StreamingSynthesizeRequest(
+            streaming_config=texttospeech.StreamingSynthesizeConfig(
+                voice=voice,
+                audio_config=audio_config,
+            )
+        )
+    ]
+
+    for chunk in text_chunks:
+        requests.append(
+            texttospeech.StreamingSynthesizeRequest(
+                input=texttospeech.SynthesisInput(text=chunk)
+            )
+        )
+
+    audio_content = b""
+    try:
+        for response in client.streaming_synthesize(requests):
+            audio_content += response.audio_content
+    except Exception as e:
+        print(f"Streaming TTS error: {e}")
+        return b""
+
+    return audio_content

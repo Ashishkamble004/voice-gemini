@@ -2,3 +2,4 @@ streamlit
 streamlit-audiorec
 google-cloud-aiplatform
 vertexai
+google-cloud-texttospeech
