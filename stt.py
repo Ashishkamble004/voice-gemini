@@ -33,7 +33,7 @@ def transcribe_with_gemini(audio_file_path: str) -> str:
     print(f"Completed upload: {audio_file.name}")
 
     # Initialize the Gemini 1.5 Flash model
-    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
+    model = genai.GenerativeModel(model_name="models/gemini-2.5-flash")
 
     # The prompt is simple: just ask for the transcription.
     prompt = "Transcribe this audio."
