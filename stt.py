@@ -156,6 +156,7 @@ def add_wav_header(audio_bytes, sample_rate=24000):
     return header + audio_bytes
 
 from pydub import AudioSegment
+AudioSegment.converter = "/usr/bin/ffmpeg"
 import io
 
 def streaming_text_to_speech(text_chunks):
