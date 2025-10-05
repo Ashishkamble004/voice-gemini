@@ -1,4 +1,5 @@
 import os
+import wave
 from typing import Generator, Union
 from google.cloud.speech_v2 import SpeechClient
 from google.cloud.speech_v2.types import cloud_speech
@@ -25,10 +26,16 @@ def transcribe_streaming(
     )
 
     # -- 1. Set up the recognition config --
+    # Get the sample rate from the WAV file header
+    sample_rate = 48000 # Default
+    if isinstance(stream, str):
+        with wave.open(stream, "rb") as wave_file:
+            sample_rate = wave_file.getframerate()
+
     recognition_config = cloud_speech.RecognitionConfig(
         explicit_decoding_config=cloud_speech.ExplicitDecodingConfig(
             encoding="LINEAR16",
-            sample_rate_hertz=48000,
+            sample_rate_hertz=sample_rate,
             audio_channel_count=1,
         ),
         language_codes=["en-US"],

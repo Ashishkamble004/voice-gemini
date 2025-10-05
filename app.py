@@ -20,11 +20,14 @@ if wav_audio_data is not None:
         f.write(wav_audio_data)
 
     with st.spinner('Transcribing...'):
-        # Transcribe the temporary file
+        # Transcribe the temporary file and display results as they come in
         transcript_generator = transcribe_streaming(temp_file_path)
-        full_transcript = "".join(list(transcript_generator))
         
-        st.text_area("Transcription", full_transcript, height=200)
+        transcript_container = st.empty()
+        full_transcript = ""
+        for chunk in transcript_generator:
+            full_transcript += chunk
+            transcript_container.text_area("Transcription", full_transcript, height=200)
 
     # Clean up the temporary file
     os.remove(temp_file_path)
@@ -42,10 +45,14 @@ if uploaded_file is not None:
         with open(temp_upload_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         
-        # Transcribe the temporary file
+        # Transcribe the temporary file and display results as they come in
         file_transcript_generator = transcribe_streaming(temp_upload_path)
-        full_transcript = "".join(list(file_transcript_generator))
-        st.text_area("File Transcription", full_transcript, height=200)
+        
+        file_transcript_container = st.empty()
+        full_transcript = ""
+        for chunk in file_transcript_generator:
+            full_transcript += chunk
+            file_transcript_container.text_area("File Transcription", full_transcript, height=200)
         
         # Clean up the temporary file
         os.remove(temp_upload_path)
