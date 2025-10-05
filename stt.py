@@ -162,7 +162,7 @@ def streaming_text_to_speech(text_chunks):
     for chunk in text_chunks:
         requests.append(
             texttospeech.StreamingSynthesizeRequest(
-                input=texttospeech.SynthesisInput(text=chunk)
+                input=texttospeech.StreamingSynthesisInput(text=chunk)
             )
         )
 
