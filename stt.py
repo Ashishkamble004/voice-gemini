@@ -155,7 +155,6 @@ def streaming_text_to_speech(text_chunks):
         texttospeech.StreamingSynthesizeRequest(
             streaming_config=texttospeech.StreamingSynthesizeConfig(
                 voice=voice,
-                audio_config=audio_config,
             )
         )
     ]
