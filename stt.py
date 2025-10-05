@@ -169,7 +169,10 @@ def streaming_text_to_speech(text_chunks):
 
     audio_content = b""
     try:
-        for response in client.streaming_synthesize(requests):
+        def request_generator():
+            for req in requests:
+                yield req
+        for response in client.streaming_synthesize(requests=request_generator()):
             audio_content += response.audio_content
         return audio_content
     except Exception as e:
