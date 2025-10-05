@@ -73,6 +73,7 @@ def query_rag_with_vertex(prompt: str):
         temperature=0.6,
         top_p=0.95,
         max_output_tokens=1000,
+        system_instruction="You are a helpful voice assistant for Cymbal Bank. Provide clear, short, and natural-sounding answers that are optimized for text-to-speech conversion. Keep responses conversational and easy to understand when spoken.",
         safety_settings=[
             types.SafetySetting(
                 category="HARM_CATEGORY_HATE_SPEECH",
@@ -119,7 +120,7 @@ def text_to_speech(text: str) -> bytes:
     # Configure voice - using Chirp3 HD model for high-quality TTS
     voice = texttospeech.VoiceSelectionParams(
         language_code="en-US",
-        name="en-US-Chirp3-HD-Female",  # Chirp3 HD female voice
+        name="en-US-Chirp-HD-F",  # Chirp3 HD female voice
         ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
     )
 
@@ -164,7 +165,7 @@ def streaming_text_to_speech(text_chunks):
 
     voice = texttospeech.VoiceSelectionParams(
         language_code="en-US",
-        name="en-US-Chirp3-HD-Female",
+        name="en-US-Chirp-HD-F",
         ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
     )
 
