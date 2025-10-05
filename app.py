@@ -4,6 +4,7 @@ from st_audiorec import st_audiorec
 import os
 
 st.title("Cymbal Bank - Voice Query")
+st.write("Record your question to query our system.")
 
 def handle_audio(file_path: str):
     """A helper function to handle the audio processing pipeline."""
@@ -35,19 +36,17 @@ def handle_audio(file_path: str):
         st.error(full_response)
         return
 
-# --- UI Flow ---
-
-# Initialize session state to control the recording widget visibility
+# Initialize session state for controlling the recorder
 if 'show_recorder' not in st.session_state:
     st.session_state.show_recorder = False
 
-# Show a button to start the recording process
+# Button to start recording
 if not st.session_state.show_recorder:
-    if st.button("Record Your Question"):
+    if st.button("Start Recording"):
         st.session_state.show_recorder = True
         st.rerun()
 else:
-    st.write("Click the microphone to start/stop recording.")
+    st.write("Click the microphone to record your question.")
     wav_audio_data = st_audiorec()
 
     if wav_audio_data is not None:
@@ -60,6 +59,6 @@ else:
         handle_audio(temp_file_path)
         os.remove(temp_file_path)
 
-        # Hide the recorder and show the button again for the next query
+        # Reset for next query
         st.session_state.show_recorder = False
         st.rerun()

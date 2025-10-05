@@ -11,7 +11,7 @@ def initialize_vertexai():
     )
 
 def transcribe_with_vertex(audio_file_path: str) -> str:
-    """Transcribes an audio file using Gemini 2.5 Flash Lite."""
+    """Transcribes an audio file using Gemini 2.5 Flash."""
     client = initialize_vertexai()
     
     print(f"Transcribing file: {audio_file_path}")
@@ -32,7 +32,7 @@ def transcribe_with_vertex(audio_file_path: str) -> str:
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash-lite",
+            model="gemini-2.5-flash",
             contents=contents,
         )
         return response.text
@@ -41,7 +41,7 @@ def transcribe_with_vertex(audio_file_path: str) -> str:
         return f"Error during transcription: {e}"
 
 def query_rag_with_vertex(prompt: str):
-    """Sends a prompt to Gemini 2.5 Flash Lite with RAG and streams the response."""
+    """Sends a prompt to Gemini 2.5 Flash  with RAG and streams the response."""
     client = initialize_vertexai()
 
     print(f"Querying RAG with prompt: {prompt}")
@@ -98,7 +98,7 @@ def query_rag_with_vertex(prompt: str):
 
     try:
         for chunk in client.models.generate_content_stream(
-            model="gemini-2.5-flash-lite",
+            model="gemini-2.5-flash",
             contents=contents,
             config=generate_content_config,
         ):
