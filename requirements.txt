@@ -1,4 +1,3 @@
 streamlit
 streamlit-audiorec
-av
-google-cloud-speech
+google-generativeai

@@ -1,78 +1,56 @@
 import os
-import wave
-from typing import Generator, Union
-from google.cloud.speech_v2 import SpeechClient
-from google.cloud.speech_v2.types import cloud_speech
+import google.generativeai as genai
 
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "general-ak")
-LOCATION = "asia-southeast1"
-RECOGNIZER_ID = "_"  # Using the default recognizer
+# --- Authentication ---
+# Make sure to set the GOOGLE_API_KEY environment variable.
+# You can get a key from https://aistudio.google.com/app/apikey
+try:
+    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+except KeyError:
+    # This is a fallback for Streamlit Community Cloud secrets
+    import streamlit as st
+    try:
+        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    except Exception:
+        print("Could not find GOOGLE_API_KEY in environment variables or Streamlit secrets.")
+        # Handle the error gracefully in the app if needed
+        pass
 
-def transcribe_streaming(
-    stream: Union[str, Generator[bytes, None, None]],
-) -> Generator[str, None, None]:
+def transcribe_with_gemini(audio_file_path: str) -> str:
     """
-    Transcribes a streaming audio source from a file or a generator.
+    Transcribes an audio file using the Gemini 1.5 Flash model.
 
     Args:
-        stream: The source of the audio stream. Can be a file path (str) or
-                a generator that yields audio chunks (bytes).
+        audio_file_path: The path to the audio file to transcribe.
 
-    Yields:
-        The transcribed text chunks as they are recognized.
+    Returns:
+        The transcribed text, or an error message if transcription fails.
     """
-    client = SpeechClient(
-        client_options={"api_endpoint": f"{LOCATION}-speech.googleapis.com"}
-    )
-
-    # -- 1. Set up the recognition config --
-    # Get the sample rate from the WAV file header
-    sample_rate = 48000 # Default
-    if isinstance(stream, str):
-        with wave.open(stream, "rb") as wave_file:
-            sample_rate = wave_file.getframerate()
-
-    recognition_config = cloud_speech.RecognitionConfig(
-        explicit_decoding_config=cloud_speech.ExplicitDecodingConfig(
-            encoding="LINEAR16",
-            sample_rate_hertz=sample_rate,
-            audio_channel_count=1,
-        ),
-        language_codes=["en-US"],
-        model="chirp_3",
-    )
-    streaming_config = cloud_speech.StreamingRecognitionConfig(
-        config=recognition_config
-    )
-    recognizer_path = f"projects/{PROJECT_ID}/locations/{LOCATION}/recognizers/{RECOGNIZER_ID}"
+    print(f"Uploading file: {audio_file_path}")
     
-    config_request = cloud_speech.StreamingRecognizeRequest(
-        recognizer=recognizer_path, streaming_config=streaming_config
-    )
+    # Upload the audio file to the Gemini API
+    audio_file = genai.upload_file(path=audio_file_path)
+    print(f"Completed upload: {audio_file.name}")
 
-    # -- 2. Create the audio stream generator --
-    def audio_stream_generator(audio_source):
-        # If the source is a file path, read and chunk it
-        if isinstance(audio_source, str):
-            with open(audio_source, "rb") as f:
-                content = f.read()
-            for i in range(0, len(content), 25600):
-                yield cloud_speech.StreamingRecognizeRequest(audio=content[i : i + 25600])
-        # If the source is already a generator, wrap the chunks
-        else:
-            for chunk in audio_source:
-                yield cloud_speech.StreamingRecognizeRequest(audio=chunk)
+    # Initialize the Gemini 1.5 Flash model
+    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
 
-    # -- 3. Define the full request generator --
-    def request_generator(config, audio_stream):
-        yield config
-        yield from audio_stream
+    # The prompt is simple: just ask for the transcription.
+    prompt = "Transcribe this audio."
 
-    # -- 4. Perform the transcription --
-    requests = request_generator(config_request, audio_stream_generator(stream))
-    responses = client.streaming_recognize(requests=requests)
-
-    for response in responses:
-        for result in response.results:
-            if result.alternatives:
-                yield result.alternatives[0].transcript
+    try:
+        # Generate the content
+        response = model.generate_content(
+            [prompt, audio_file],
+            request_options={"timeout": 600} # Set a 10-minute timeout
+        )
+        
+        # Clean up the uploaded file
+        genai.delete_file(audio_file.name)
+        
+        return response.text
+    except Exception as e:
+        # Clean up the file in case of an error
+        genai.delete_file(audio_file.name)
+        print(f"An error occurred: {e}")
+        return f"Error during transcription: {e}"
