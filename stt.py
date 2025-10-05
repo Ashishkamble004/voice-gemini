@@ -1,6 +1,7 @@
 import os
 import vertexai
-from vertexai.generative_models import GenerativeModel, Part, Tool, Retrieval, VertexRagStore
+from vertexai.generative_models import GenerativeModel, Part, Tool
+from google.genai import types
 
 def initialize_vertexai():
     """Initializes the Vertex AI SDK."""
@@ -52,12 +53,16 @@ def query_rag_with_vertex(prompt: str):
     )
     
     tools = [
-        Tool.from_retrieval(
-            Retrieval(
-                source=VertexRagStore(
-                    rag_corpora=["projects/general-ak/locations/us-east4/ragCorpora/6917529027641081856"]
+        types.Tool(
+        retrieval=types.Retrieval(
+            vertex_rag_store=types.VertexRagStore(
+            rag_resources=[
+                types.VertexRagStoreRagResource(
+                rag_corpus="projects/general-ak/locations/us-east4/ragCorpora/6917529027641081856"
                 )
+            ],
             )
+        )
         )
     ]
 
