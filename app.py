@@ -59,6 +59,7 @@ else:
         handle_audio(temp_file_path)
         os.remove(temp_file_path)
 
-        # Reset for next query
-        st.session_state.show_recorder = False
-        st.rerun()
+        # Do not reset automatically; let user choose to record again
+        if st.button("Record Another Question"):
+            st.session_state.show_recorder = False
+            st.rerun()
