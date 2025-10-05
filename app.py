@@ -1,92 +1,35 @@
 import streamlit as st
 from stt import transcribe_streaming
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
-import av
-import queue
-import threading
+from st_audiorec import st_audiorec
+import os
 
 st.title("Real-Time Speech-to-Text")
-st.write("Click 'Start' to begin recording from your microphone and see the live transcription.")
+st.write("Click the microphone to start and stop recording, then see the transcription below.")
 
-# Use a session state to track the recording status and transcript
-if "recording" not in st.session_state:
-    st.session_state.recording = False
-    st.session_state.transcript = ""
+# -- 1. Audio Recorder --
+# Use the st_audiorec component to record audio
+wav_audio_data = st_audiorec()
 
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.audio_queue = queue.Queue()
-
-    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
-        # The audio frames are in pcm_s16 format, which is what we need.
-        self.audio_queue.put(frame.to_ndarray().tobytes())
-        return frame
-
-def stream_transcription(audio_queue: queue.Queue, transcript_container):
-    """Continuously transcribes audio chunks from the queue."""
+# -- 2. Transcription --
+if wav_audio_data is not None:
+    st.audio(wav_audio_data, format='audio/wav')
     
-    def audio_chunk_generator():
-        """Yields audio chunks from the queue."""
-        while st.session_state.recording:
-            try:
-                yield audio_queue.get(timeout=1)
-            except queue.Empty:
-                # If no audio, continue waiting as long as we are recording.
-                pass
+    # Save the recorded audio to a temporary file
+    temp_file_path = "temp_audio.wav"
+    with open(temp_file_path, "wb") as f:
+        f.write(wav_audio_data)
 
-    transcript_chunks = transcribe_streaming(audio_chunk_generator())
-    
-    full_transcript = ""
-    for chunk in transcript_chunks:
-        full_transcript += chunk
-        transcript_container.markdown(full_transcript)
-    
-    st.session_state.transcript = full_transcript
+    with st.spinner('Transcribing...'):
+        # Transcribe the temporary file
+        transcript_generator = transcribe_streaming(temp_file_path)
+        full_transcript = "".join(list(transcript_generator))
+        
+        st.text_area("Transcription", full_transcript, height=200)
 
-# -- Main App UI --
-webrtc_ctx = webrtc_streamer(
-    key="speech-to-text",
-    audio_processor_factory=AudioProcessor,
-    media_stream_constraints={"audio": True, "video": False},
-    rtc_configuration={
-        "iceServers": [
-            {"urls": ["stun:stun.l.google.com:19302"]},
-            # Replace with your Coturn server's details
-            {
-                "urls": ["turn:136.115.114.154:3478"],
-                "username": "AshishK",
-                "credential": "AKSturn@123",
-            },
-        ]
-    },
-    sendback_audio=False,
-)
+    # Clean up the temporary file
+    os.remove(temp_file_path)
 
-transcript_container = st.empty()
-transcript_container.markdown(st.session_state.transcript)
-
-if not webrtc_ctx.state.playing and not st.session_state.recording:
-    if st.button("Start Recording"):
-        st.session_state.recording = True
-        st.rerun()
-
-elif webrtc_ctx.state.playing and st.session_state.recording:
-    st.write("🔴 Recording... Speak into your microphone.")
-    
-    # Start the transcription thread
-    if "transcription_thread" not in st.session_state or not st.session_state.transcription_thread.is_alive():
-        thread = threading.Thread(
-            target=stream_transcription,
-            args=(webrtc_ctx.audio_processor.audio_queue, transcript_container),
-        )
-        st.session_state.transcription_thread = thread
-        thread.start()
-
-    if st.button("Stop Recording"):
-        st.session_state.recording = False
-        st.rerun()
-
-# -- File Uploader --
+# -- 3. File Uploader (as a fallback) --
 st.header("Or, upload an audio file")
 uploaded_file = st.file_uploader("Choose a WAV file", type="wav")
 
@@ -94,11 +37,15 @@ if uploaded_file is not None:
     st.audio(uploaded_file, format='audio/wav')
     
     with st.spinner('Transcribing file...'):
-        # Save the uploaded file to a temporary file to get a valid path
-        with open(uploaded_file.name, "wb") as f:
+        # Save the uploaded file to a temporary file
+        temp_upload_path = uploaded_file.name
+        with open(temp_upload_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         
-        # The `transcribe_streaming` function now handles file paths directly
-        file_transcript_generator = transcribe_streaming(uploaded_file.name)
+        # Transcribe the temporary file
+        file_transcript_generator = transcribe_streaming(temp_upload_path)
         full_transcript = "".join(list(file_transcript_generator))
         st.text_area("File Transcription", full_transcript, height=200)
+        
+        # Clean up the temporary file
+        os.remove(temp_upload_path)
