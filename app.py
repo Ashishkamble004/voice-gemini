@@ -19,15 +19,16 @@ if wav_audio_data is not None:
     with open(temp_file_path, "wb") as f:
         f.write(wav_audio_data)
 
-    with st.spinner('Transcribing...'):
-        # Transcribe the temporary file and display results as they come in
-        transcript_generator = transcribe_streaming(temp_file_path)
-        
-        transcript_container = st.empty()
-        full_transcript = ""
-        for chunk in transcript_generator:
-            full_transcript += chunk
-            transcript_container.text_area("Transcription", full_transcript, height=200)
+    # --- Corrected Transcription and UI Update ---
+    transcript_container = st.empty()
+    transcript_container.info("Transcribing...")
+
+    transcript_generator = transcribe_streaming(temp_file_path)
+    
+    full_transcript = ""
+    for chunk in transcript_generator:
+        full_transcript += chunk
+        transcript_container.text_area("Transcription", full_transcript, height=200)
 
     # Clean up the temporary file
     os.remove(temp_file_path)
@@ -39,20 +40,21 @@ uploaded_file = st.file_uploader("Choose a WAV file", type="wav")
 if uploaded_file is not None:
     st.audio(uploaded_file, format='audio/wav')
     
-    with st.spinner('Transcribing file...'):
-        # Save the uploaded file to a temporary file
-        temp_upload_path = uploaded_file.name
-        with open(temp_upload_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        
-        # Transcribe the temporary file and display results as they come in
-        file_transcript_generator = transcribe_streaming(temp_upload_path)
-        
-        file_transcript_container = st.empty()
-        full_transcript = ""
-        for chunk in file_transcript_generator:
-            full_transcript += chunk
-            file_transcript_container.text_area("File Transcription", full_transcript, height=200)
-        
-        # Clean up the temporary file
-        os.remove(temp_upload_path)
+    # Save the uploaded file to a temporary file
+    temp_upload_path = uploaded_file.name
+    with open(temp_upload_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    # --- Corrected Transcription and UI Update ---
+    file_transcript_container = st.empty()
+    file_transcript_container.info("Transcribing file...")
+
+    file_transcript_generator = transcribe_streaming(temp_upload_path)
+    
+    full_transcript = ""
+    for chunk in file_transcript_generator:
+        full_transcript += chunk
+        file_transcript_container.text_area("File Transcription", full_transcript, height=200)
+    
+    # Clean up the temporary file
+    os.remove(temp_upload_path)
