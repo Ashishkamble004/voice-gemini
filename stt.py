@@ -1,47 +1,71 @@
 import os
-
+from typing import Generator, Union
 from google.cloud.speech_v2 import SpeechClient
-from google.cloud.speech_v2.types import cloud_speech as cloud_speech_types
+from google.cloud.speech_v2.types import cloud_speech
 
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT","general-ak")
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "general-ak")
+LOCATION = "asia-southeast1"
+RECOGNIZER_ID = "_"  # Using the default recognizer
 
-def transcribe_streaming_v2(audio_bytes: bytes) -> str:
+def transcribe_streaming(
+    stream: Union[str, Generator[bytes, None, None]],
+) -> Generator[str, None, None]:
     """
-    Transcribes audio from bytes using Google Cloud Speech-to-Text API with proper chunking.
+    Transcribes a streaming audio source from a file or a generator.
+
     Args:
-        audio_bytes: bytes object containing audio data
-    Returns:
-        str: The transcription result.
+        stream: The source of the audio stream. Can be a file path (str) or
+                a generator that yields audio chunks (bytes).
+
+    Yields:
+        The transcribed text chunks as they are recognized.
     """
-    client = SpeechClient(client_options={"api_endpoint": "asia-southeast1-speech.googleapis.com"})
-    MAX_CHUNK_SIZE = 25600
-    stream = [
-        audio_bytes[start : start + MAX_CHUNK_SIZE]
-        for start in range(0, len(audio_bytes), MAX_CHUNK_SIZE)
-    ]
-    audio_requests = (
-        cloud_speech_types.StreamingRecognizeRequest(audio=audio) for audio in stream
+    client = SpeechClient(
+        client_options={"api_endpoint": f"{LOCATION}-speech.googleapis.com"}
     )
-    recognition_config = cloud_speech_types.RecognitionConfig(
-        auto_decoding_config=cloud_speech_types.AutoDetectDecodingConfig(),
+
+    # -- 1. Set up the recognition config --
+    recognition_config = cloud_speech.RecognitionConfig(
+        explicit_decoding_config=cloud_speech.ExplicitDecodingConfig(
+            encoding="LINEAR16",
+            sample_rate_hertz=48000,
+            audio_channel_count=1,
+        ),
         language_codes=["en-US"],
         model="chirp_3",
     )
-    streaming_config = cloud_speech_types.StreamingRecognitionConfig(
+    streaming_config = cloud_speech.StreamingRecognitionConfig(
         config=recognition_config
     )
-    config_request = cloud_speech_types.StreamingRecognizeRequest(
-        recognizer=f"projects/{PROJECT_ID}/locations/asia-southeast1/recognizers/_",
-        streaming_config=streaming_config,
+    recognizer_path = f"projects/{PROJECT_ID}/locations/{LOCATION}/recognizers/{RECOGNIZER_ID}"
+    
+    config_request = cloud_speech.StreamingRecognizeRequest(
+        recognizer=recognizer_path, streaming_config=streaming_config
     )
-    def requests(config_request, audio_requests):
-        yield config_request
-        yield from audio_requests
-    responses_iterator = client.streaming_recognize(
-        requests=requests(config_request, audio_requests)
-    )
-    transcript = ""
-    for response in responses_iterator:
+
+    # -- 2. Create the audio stream generator --
+    def audio_stream_generator(audio_source):
+        # If the source is a file path, read and chunk it
+        if isinstance(audio_source, str):
+            with open(audio_source, "rb") as f:
+                content = f.read()
+            for i in range(0, len(content), 25600):
+                yield cloud_speech.StreamingRecognizeRequest(audio=content[i : i + 25600])
+        # If the source is already a generator, wrap the chunks
+        else:
+            for chunk in audio_source:
+                yield cloud_speech.StreamingRecognizeRequest(audio=chunk)
+
+    # -- 3. Define the full request generator --
+    def request_generator(config, audio_stream):
+        yield config
+        yield from audio_stream
+
+    # -- 4. Perform the transcription --
+    requests = request_generator(config_request, audio_stream_generator(stream))
+    responses = client.streaming_recognize(requests=requests)
+
+    for response in responses:
         for result in response.results:
-            transcript += result.alternatives[0].transcript
-    return transcript
+            if result.alternatives:
+                yield result.alternatives[0].transcript
