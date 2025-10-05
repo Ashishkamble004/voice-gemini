@@ -58,7 +58,7 @@ def query_rag_with_vertex(prompt: str):
             vertex_rag_store=types.VertexRagStore(
             rag_resources=[
                 types.VertexRagStoreRagResource(
-                rag_corpus="projects/general-ak/locations/us-east4/ragCorpora/6917529027641081856"
+                rag_corpus="projects/general-ak/locations/us-east4/ragCorpora/2305843009213693952"
                 )
             ],
             )

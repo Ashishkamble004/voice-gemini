@@ -4,7 +4,6 @@ from st_audiorec import st_audiorec
 import os
 
 st.title("Cymbal Bank - Voice Query")
-st.write("Record your question to query our system.")
 
 def handle_audio(file_path: str):
     """A helper function to handle the audio processing pipeline."""
@@ -36,15 +35,31 @@ def handle_audio(file_path: str):
         st.error(full_response)
         return
 
-# -- Audio Recorder --
-wav_audio_data = st_audiorec()
+# --- UI Flow ---
 
-if wav_audio_data is not None:
-    st.audio(wav_audio_data, format='audio/wav')
-    
-    temp_file_path = "temp_audio.wav"
-    with open(temp_file_path, "wb") as f:
-        f.write(wav_audio_data)
+# Initialize session state to control the recording widget visibility
+if 'show_recorder' not in st.session_state:
+    st.session_state.show_recorder = False
 
-    handle_audio(temp_file_path)
-    os.remove(temp_file_path)
+# Show a button to start the recording process
+if not st.session_state.show_recorder:
+    if st.button("Record Your Question"):
+        st.session_state.show_recorder = True
+        st.rerun()
+else:
+    st.write("Click the microphone to start/stop recording.")
+    wav_audio_data = st_audiorec()
+
+    if wav_audio_data is not None:
+        st.audio(wav_audio_data, format='audio/wav')
+        
+        temp_file_path = "temp_audio.wav"
+        with open(temp_file_path, "wb") as f:
+            f.write(wav_audio_data)
+
+        handle_audio(temp_file_path)
+        os.remove(temp_file_path)
+
+        # Hide the recorder and show the button again for the next query
+        st.session_state.show_recorder = False
+        st.rerun()
