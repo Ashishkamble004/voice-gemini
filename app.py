@@ -47,7 +47,17 @@ webrtc_ctx = webrtc_streamer(
     key="speech-to-text",
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False},
-    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+    rtc_configuration={
+        "iceServers": [
+            {"urls": ["stun:stun.l.google.com:19302"]},
+            # Replace with your Coturn server's details
+            {
+                "urls": ["turn:136.115.114.154:3478"],
+                "username": "AshishK",
+                "credential": "AKSturn@123",
+            },
+        ]
+    },
     sendback_audio=False,
 )
 
