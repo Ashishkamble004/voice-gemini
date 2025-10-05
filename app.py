@@ -1,5 +1,5 @@
 import streamlit as st
-from stt import transcribe_with_gemini, query_rag_with_vertex
+from stt import transcribe_with_vertex, query_rag_with_vertex
 from st_audiorec import st_audiorec
 import os
 
@@ -9,9 +9,9 @@ st.write("Record your question to query our system.")
 def handle_audio(file_path: str):
     """A helper function to handle the audio processing pipeline."""
     
-    # -- Step 1: Transcribe the audio --
+    # -- Step 1: Transcribe the audio using Vertex AI --
     with st.spinner('Transcribing your question...'):
-        transcript = transcribe_with_gemini(file_path)
+        transcript = transcribe_with_vertex(file_path)
     
     if "Error" in transcript:
         st.error(transcript)
@@ -20,7 +20,7 @@ def handle_audio(file_path: str):
     st.info("Your transcribed question:")
     st.text_area("Question", transcript, height=100)
 
-    # -- Step 2: Query the RAG system and stream the response --
+    # -- Step 2: Query the RAG system with the transcript --
     st.success("Answer from our system:")
     answer_container = st.empty()
     

@@ -1,4 +1,4 @@
 streamlit
 streamlit-audiorec
-google-generativeai
 google-cloud-aiplatform
+vertexai
