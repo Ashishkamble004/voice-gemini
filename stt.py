@@ -137,43 +137,65 @@ def text_to_speech(text: str) -> bytes:
         print(f"TTS error: {e}")
         return b""
 
+def add_wav_header(audio_bytes, sample_rate=24000):
+    """Add WAV header to raw LINEAR16 audio bytes."""
+    import struct
+    riff = b'RIFF'
+    riff_size = len(audio_bytes) + 36
+    wave = b'WAVE'
+    fmt = b'fmt '
+    fmt_size = 16
+    audio_format = 1  # PCM
+    num_channels = 1
+    byte_rate = sample_rate * num_channels * 2  # 16-bit
+    block_align = num_channels * 2
+    bits_per_sample = 16
+    data = b'data'
+    data_size = len(audio_bytes)
+    header = struct.pack('<4sL4s4sLHHLLHH4sL', riff, riff_size, wave, fmt, fmt_size, audio_format, num_channels, sample_rate, byte_rate, block_align, bits_per_sample, data, data_size)
+    return header + audio_bytes
+
+from pydub import AudioSegment
+import io
+
 def streaming_text_to_speech(text_chunks):
-    """Converts text chunks to speech using Google Cloud Text-to-Speech streaming synthesis."""
+    """Streams text-to-speech audio for a sequence of text chunks."""
     client = texttospeech.TextToSpeechClient()
 
+    # Assuming a standard US English voice, modify as needed
     voice = texttospeech.VoiceSelectionParams(
         language_code="en-US",
-        name="en-US-Chirp3-HD-Female",  # Chirp3 HD female voice
+        name="en-US-Chirp3-HD-Female",
         ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
     )
 
-    streaming_audio_config = texttospeech.StreamingAudioConfig(
+    # Configure audio - Chirp voices work well with MP3
+    audio_config = texttospeech.AudioConfig(
         audio_encoding=texttospeech.AudioEncoding.MP3,
     )
 
-    requests = [
-        texttospeech.StreamingSynthesizeRequest(
-            streaming_config=texttospeech.StreamingSynthesizeConfig(
-                voice=voice,
-                streaming_audio_config=streaming_audio_config,
-            )
-        )
-    ]
+    # Collect audio chunks
+    combined_audio = AudioSegment.empty()
 
-    for chunk in text_chunks:
-        requests.append(
-            texttospeech.StreamingSynthesizeRequest(
-                input=texttospeech.StreamingSynthesisInput(text=chunk)
-            )
-        )
-
-    audio_content = b""
     try:
-        def request_generator():
-            for req in requests:
-                yield req
-        for response in client.streaming_synthesize(requests=request_generator()):
-            audio_content += response.audio_content
-        return audio_content
+        for text in text_chunks:
+            if not text.strip():
+                continue
+            input_text = texttospeech.SynthesisInput(text=text)
+
+            # Perform the text-to-speech request
+            response = client.synthesize_speech(
+                input=input_text, voice=voice, audio_config=audio_config
+            )
+
+            # Append the received audio content using pydub
+            audio_segment = AudioSegment.from_mp3(io.BytesIO(response.audio_content))
+            combined_audio += audio_segment
+        
+        # Export the combined audio to an in-memory file
+        buffer = io.BytesIO()
+        combined_audio.export(buffer, format="mp3")
+        return buffer.getvalue()
+
     except Exception as e:
         return str(e)
